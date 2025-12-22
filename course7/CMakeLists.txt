@@ -1,0 +1,6 @@
+add_executable(naive_transpose naive_transpose.cu )
+add_executable(transpose_bench   transpose_bench.cu)
+add_executable(learn_transpose_bench1 learn_transpose_bench1.cu)
+target_link_libraries(naive_transpose PRIVATE ${CUDA_LIBRARIES})
+target_link_libraries(transpose_bench PRIVATE ${CUDA_LIBRARIES})
+target_link_libraries(learn_transpose_bench1 PRIVATE ${CUDA_LIBRARIES})
