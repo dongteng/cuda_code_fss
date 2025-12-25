@@ -94,12 +94,12 @@ __global__ void flash_attention_v2_kernel(FP *Q, FP *K, FP *V, FP *O,
     __shared__ FP sV[Bc][dim];
     // tmp o
     __shared__ FP sO[Br][dim];
-    __shared__ FP sQK[Br][Bc]; //用来存储当前分块计算得到的注意力打分矩阵S = Q*K^T
+    __shared__ FP sQK[Br][Bc]; //用来存储当前分块计算得到的注意力打分矩阵S = Q*K^T,softmax之前的
     // e^{x - max}
-    __shared__ FP sSafeE[Br][Bc];
+    __shared__ FP sSafeE[Br][Bc];//e^{x - local max}
     // s stand for shared and local
-    __shared__ FP sDenom[Br];
-    __shared__ FP sMax[Br];
+    __shared__ FP sDenom[Br];//全局归一化分母缓存
+    __shared__ FP sMax[Br]; //存储max(所有已见的 QK^T)
 
     // TODO: multihead
 
@@ -115,16 +115,6 @@ __global__ void flash_attention_v2_kernel(FP *Q, FP *K, FP *V, FP *O,
         return;
     }
     // load q, o, max, denom from global memory to shared memory
-    // Q[Br, dim]
-    //groupTx 是什么？ dim 方向被 Bc 个线程分工，需要多少轮才能搬完一行。Bc：block 内横向的线程数（threadIdx.x 的范围）。
-    //groupTx：每个线程要循环多少次，才能和其他线程一起搬完整行。
-    //假设：dim=8 Bc=2 groupTx=4 ty=1（线程在 block 内第 2 行）  row=5（负责大教室第 5 行 Q）
-    //线程分工
-    //轮次 i	线程 tx=0 搬	线程 tx=1 搬
-    //0 	Q[5,0] → sQ[1][0]	Q[5,1] → sQ[1][1]
-    //1	    Q[5,2] → sQ[1][2]	Q[5,3] → sQ[1][3]
-    //2 	Q[5,4] → sQ[1][4]	Q[5,5] → sQ[1][5]
-    //3	    Q[5,6] → sQ[1][6]	Q[5,7] → sQ[1][7]
     for (int i = 0; i < groupTx; i++) {
         //sQ[ty][:]：共享内存里存的是 Q 的一行。ty：表示是哪一行（由 threadIdx.y 决定）
         //i * Bc + tx：表示这一行的第几列。
@@ -141,26 +131,11 @@ __global__ void flash_attention_v2_kernel(FP *Q, FP *K, FP *V, FP *O,
     // load K, V block
     // Q[Br][dim] @ K[0..seqlen.step(Bc), dim]
     // compute partial sum of O[ty][dim] each iteration
-    //那么：
-    //每次 j 搬 2 行 K,V。
-    //每个 block 内 tx=0,1 决定搬哪一行。
-    //每行有 8 列，用 i=0..3、ty=0..1 一起搬。
-    //举个具体线程 (ty=1, tx=0)：
-    //j=0, i=0 → 搬 K[0,1] → 放到 sK[0][1]
-    //j=0, i=1 → 搬 K[0,3] → 放到 sK[0][3]
-    //…直到 i=3 把 K[0,7] 搬完。
     for (int j = 0; j < groupSeq; j++) {
         if ((j * Bc + tx) < seqlen) {
             // load k, v from global memory to shared memory
             // K[seqlen, dim], V[seqlen, dim]
             for (int i = 0; i < groupTy; i++) {
-                /**
-                 *
-                 *
-                    名称	     作用域
-                    Br(ty)	   	seq_len 上的分块（对应 Q,O 的行数）
-                    Bc(tx)	   	seq_len 上的分块（对应 K,V 的行数）
-                 */
                 sK[tx][i * Br + ty] = K[j * Bc * dim + tx * dim + i * Br + ty];
                 sV[tx][i * Br + ty] = V[j * Bc * dim + tx * dim + i * Br + ty];
             }
