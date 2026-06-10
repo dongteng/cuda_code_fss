@@ -88,7 +88,7 @@ __global__ void softmax_forward_kernel2(float *out, const float *inp, int N,
     __syncthreads();
     // reductions 已知shared[tid] 里存放了每个线程的局部最大值， 一个block里有block_size个线程，所以 shared 里有 block_size 个值；
     for (int stride = block_size / 2; stride >= 1; stride /= 2) { //从一半开始，每次除以 2，直到 1。只有一半线程参与计算
-        __syncthreads();
+        __syncthreads(); //此处为什么先同步一次？ 是为了保证后续访问shared[tid+stride]已经被前一个阶段写完
         if (tid < stride) { //控制哪些线程参与当前轮的比较 避免重复计算或访问越界。
             shared[tid] = fmaxf(shared[tid], shared[tid + stride]);
         }
@@ -292,7 +292,7 @@ int main() {
     int C = 4096;
 
     size_t num_elements = N * C;
-    float *inp = (float *) malloc(num_elements * sizeof(float));
+    float *inp = (float *) malloc(num_elements * sizeof(float)); //malloc 返回的是void *
     float *out_cpu = (float *) malloc(num_elements * sizeof(float));
     float *out_gpu = (float *) malloc(num_elements * sizeof(float));
 

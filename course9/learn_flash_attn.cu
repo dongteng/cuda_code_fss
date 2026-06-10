@@ -151,6 +151,7 @@ __global__ void flash_attention_v2_kernel(FP *Q, FP *K, FP *V, FP *O, int seqlen
     __shared__ float sDenom[Br];//存储每行softmax的累计分母
     __shared__ float sMax[Br]; // 存储注意力矩阵中每行的最大值
     //TODO:多头
+    
 
     int ty = threadIdx.y;
     int tx = threadIdx.x;

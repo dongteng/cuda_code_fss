@@ -5,15 +5,15 @@
 
 import os
 import torch
-import glob
+import glob #自动搜 .cpp / .cu 文件（不用手写列表）
 
-from setuptools import find_packages, setup
+from setuptools import find_packages, setup #setup() 是“告诉 pip：这个 Python 项目是什么、怎么安装”的总入口
 
 from torch.utils.cpp_extension import (
-    CppExtension,
-    CUDAExtension,
-    BuildExtension,
-    CUDA_HOME,
+    CppExtension,#只编 C++
+    CUDAExtension,#C++ + CUDA
+    BuildExtension,#PyTorch 官方编译器封装
+    CUDA_HOME,#判断 nvcc 是否存在
 )
 
 library_name = "extension_cpp"
@@ -34,9 +34,10 @@ def get_extensions():
     extension = CUDAExtension if use_cuda else CppExtension
 
     extra_link_args = []
+    # 设置编译参数
     extra_compile_args = {
         "cxx": [
-            "-O3" if not debug_mode else "-O0",
+            "-O3" if not debug_mode else "-O0", #-O3：正式版优化  -O0 + -g：调试版
             "-fdiagnostics-color=always",
             "-DPy_LIMITED_API=0x03090000",  # min CPython version 3.9
         ],
@@ -60,14 +61,14 @@ def get_extensions():
         sources += cuda_sources
 
     ext_modules = [
-        extension(
+        extension( #真正生成扩展模块
             f"{library_name}._C",
             sources,
             extra_compile_args=extra_compile_args,
             extra_link_args=extra_link_args,
             py_limited_api=py_limited_api,
         )
-    ]
+    ] #最终效果：编译出一个 .so  import extension_cpp._C
 
     return ext_modules
 

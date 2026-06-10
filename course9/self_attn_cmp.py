@@ -3,8 +3,8 @@ import numpy as np
 m, n = 64, 128
 
 # Load PyTorch output and CUDA output
-O_torch = np.fromfile("/home/test_fss/code/cuda_code/course9/O.bin", dtype=np.float32).reshape(m, n)
-O_cuda  = np.fromfile("/home/test_fss/code/cuda_code/course9/O_cuda.bin", dtype=np.float32).reshape(m, n)
+O_torch = np.fromfile("/cuda_code/course9/tmp/O.bin", dtype=np.float32).reshape(m, n)
+O_cuda  = np.fromfile("course9/tmp/O_cuda.bin", dtype=np.float32).reshape(m, n)
 
 # Compute error
 diff = O_torch - O_cuda
